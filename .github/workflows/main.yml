@@ -1,4 +1,4 @@
-name: S&P500 45周均线监控
+name: S&P500 技术指标监控系统
 
 on:
   schedule:

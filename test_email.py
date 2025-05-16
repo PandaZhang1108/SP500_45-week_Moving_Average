@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-标普500指数技术指标分析邮件测试脚本
+S&P 500 Technical Indicator Analysis Email Test Script
 """
 
 import os
@@ -86,24 +86,24 @@ def create_test_data():
     return df
 
 def create_test_signals():
-    """创建测试信号"""
+    """Create test signals"""
     signals = {
-        '45WMA': {'type': '金叉', 'action': '买入', 'strength': 'strong'},
-        '50_200MA': {'type': '金叉', 'action': '买入', 'strength': 'strong', 'desc': '50日均线上穿200日均线'},
-        'rsi': {'type': '超卖反弹', 'action': '观察做多', 'strength': 'medium', 'desc': 'RSI从超卖区域反弹'},
-        'macd': {'type': '金叉', 'action': '买入', 'strength': 'medium', 'desc': 'MACD线上穿信号线'},
-        'vix': {'type': '中度恐慌', 'action': '观察', 'strength': 'medium', 'desc': 'VIX恐慌指数中等(22.45)，表明市场存在担忧'}
+        '45WMA': {'type': 'Golden Cross', 'action': 'Buy', 'strength': 'strong'},
+        '50_200MA': {'type': 'Golden Cross', 'action': 'Buy', 'strength': 'strong', 'desc': '50-day MA crosses above 200-day MA'},
+        'rsi': {'type': 'Rebound from Oversold', 'action': 'Consider Long Position', 'strength': 'medium', 'desc': 'RSI rebounds from oversold territory'},
+        'macd': {'type': 'Golden Cross', 'action': 'Buy', 'strength': 'medium', 'desc': 'MACD crosses above Signal Line'},
+        'vix': {'type': 'Moderate Fear', 'action': 'Watch', 'strength': 'medium', 'desc': 'VIX Fear Index moderate (22.45)'}
     }
     return signals
 
 def send_test_email():
     """发送测试邮件"""
     # 获取邮箱设置
-    sender_email = input("请输入您的邮箱地址: ").strip()
-    sender_password = input("请输入您的邮箱密码或授权码: ").strip()
+    sender_email = input("Please enter your email address: ").strip()
+    sender_password = input("Please enter your email password or authorization code: ").strip()
     
     # 创建测试数据
-    print("正在创建测试数据...")
+    print("Creating test data...")
     df = create_test_data()
     signals = create_test_signals()
     signal_date = df.index[-1]
@@ -165,31 +165,31 @@ Current Price: {df['Close'].iloc[-1]:.2f}
     try:
         # 先尝试Gmail
         try:
-            print("尝试使用Gmail发送...")
+            print("Trying to send via Gmail...")
             server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
             server.login(sender_email, sender_password)
             is_gmail = True
         except Exception as e:
-            print(f"Gmail登录失败: {str(e)}")
+            print(f"Gmail login failed: {str(e)}")
             # 如果Gmail连接失败，尝试QQ邮箱
             try:
-                print("尝试使用QQ邮箱发送...")
+                print("Trying to send via QQ Mail...")
                 server = smtplib.SMTP_SSL('smtp.qq.com', 465)
                 server.login(sender_email, sender_password)
                 is_gmail = False
             except Exception as e:
-                print(f"QQ邮箱登录失败: {str(e)}")
+                print(f"QQ Mail login failed: {str(e)}")
                 return False
         
         # 发送邮件
         server.send_message(msg)
         server.quit()
-        print(f"成功发送测试邮件到 {sender_email} (使用{'Gmail' if is_gmail else 'QQ邮箱'})")
+        print(f"Successfully sent test email to {sender_email} (using {'Gmail' if is_gmail else 'QQ Mail'})")
         return True
     except Exception as e:
-        print(f"发送邮件失败: {str(e)}")
+        print(f"Failed to send email: {str(e)}")
         return False
 
 if __name__ == "__main__":
-    print("开始运行邮件测试程序...")
+    print("Starting email test program...")
     send_test_email() 
