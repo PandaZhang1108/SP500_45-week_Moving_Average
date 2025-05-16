@@ -6,6 +6,7 @@
 """
 
 import os
+import time
 import datetime
 import yfinance as yf
 import pandas as pd
@@ -16,6 +17,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
+import requests
 
 # 设置中文字体（MacOS可用"Arial Unicode MS"或"PingFang SC"）
 try:
@@ -25,18 +27,76 @@ except:
     # 如果失败，使用系统默认字体
     chinese_font = FontProperties()
 
-def get_sp500_data():
-    """获取标普500指数数据"""
-    # 下载近两年的数据（确保有足够的历史数据计算均线）
-    df = yf.download('^GSPC', period='2y')
+def get_sp500_data(max_retries=5, retry_delay=5):
+    """获取标普500指数数据，添加重试机制"""
+    retries = 0
+    last_error = None
     
-    # 添加45周均线 (45*5=225天，因为一周约有5个交易日)
-    df['45WMA'] = df['Close'].rolling(window=225).mean()
+    while retries < max_retries:
+        try:
+            # 下载近两年的数据（确保有足够的历史数据计算均线）
+            print(f"尝试获取标普500数据 (尝试 {retries + 1}/{max_retries})")
+            df = yf.download('^GSPC', period='2y')
+            
+            # 验证数据是否有效
+            if df is None or len(df) == 0:
+                raise ValueError("获取的数据为空")
+                
+            # 添加45周均线 (45*5=225天，因为一周约有5个交易日)
+            df['45WMA'] = df['Close'].rolling(window=225).mean()
+            
+            print(f"成功获取标普500指数数据，共{len(df)}个交易日")
+            return df
+            
+        except Exception as e:
+            last_error = e
+            print(f"获取数据失败: {str(e)}, 将在{retry_delay}秒后重试...")
+            retries += 1
+            time.sleep(retry_delay)
     
-    return df
+    # 如果所有重试都失败，尝试直接使用requests获取数据
+    try:
+        print("使用替代方法获取数据...")
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=2y&interval=1d"
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        
+        # 解析JSON数据
+        timestamps = data['chart']['result'][0]['timestamp']
+        quotes = data['chart']['result'][0]['indicators']['quote'][0]
+        
+        # 创建DataFrame
+        df = pd.DataFrame({
+            'Open': quotes['open'],
+            'High': quotes['high'],
+            'Low': quotes['low'],
+            'Close': quotes['close'],
+            'Volume': quotes['volume']
+        }, index=pd.to_datetime([datetime.datetime.fromtimestamp(x) for x in timestamps]))
+        
+        # 添加45周均线
+        df['45WMA'] = df['Close'].rolling(window=225).mean()
+        
+        print(f"成功使用替代方法获取标普500指数数据，共{len(df)}个交易日")
+        return df
+        
+    except Exception as e:
+        print(f"所有尝试都失败，无法获取数据: {str(e)}")
+        raise RuntimeError(f"无法获取标普500数据，最后的错误: {str(last_error)}")
 
 def check_cross_signals(df):
     """检查金叉和死叉信号"""
+    # 确保数据不为空
+    if df is None or len(df) == 0:
+        print("警告: 数据为空，无法检查交叉信号")
+        return False, False, None
+        
+    # 确保至少有两个数据点进行比较
+    if len(df) < 3:
+        print(f"警告: 数据点数量不足 (仅有 {len(df)} 行)，需要至少3个数据点")
+        return False, False, df.index[-1] if len(df) > 0 else None
+    
     # 取最近的数据进行判断
     recent_data = df.tail(3).copy()
     
@@ -64,7 +124,7 @@ def create_chart(df, signal_date=None, is_golden=False, is_death=False):
     plt.figure(figsize=(12, 6))
     
     # 只绘制最近一年的数据
-    plot_data = df.iloc[-252:].copy()
+    plot_data = df.iloc[-252:].copy() if len(df) > 252 else df.copy()
     
     # 绘制收盘价和45周均线
     plt.plot(plot_data.index, plot_data['Close'], label='标普500指数', color='blue')
@@ -187,9 +247,19 @@ def main():
     # 获取数据
     try:
         data = get_sp500_data()
-        print(f"成功获取标普500指数数据，共{len(data)}个交易日")
+        if data is None or len(data) == 0:
+            # 发送错误报告邮件
+            error_subject = f"标普500指数监控系统错误 - {datetime.datetime.now().strftime('%Y-%m-%d')}"
+            error_body = "数据获取失败，返回的数据为空。系统将在下次计划运行时再次尝试。"
+            send_email_alert(error_subject, error_body)
+            print("数据为空，发送了错误报告邮件")
+            return
     except Exception as e:
-        print(f"获取数据失败: {str(e)}")
+        # 发送错误报告邮件
+        error_subject = f"标普500指数监控系统错误 - {datetime.datetime.now().strftime('%Y-%m-%d')}"
+        error_body = f"获取数据时发生错误: {str(e)}\n系统将在下次计划运行时再次尝试。"
+        send_email_alert(error_subject, error_body)
+        print(f"获取数据失败，发送了错误报告邮件: {str(e)}")
         return
     
     # 检查信号
