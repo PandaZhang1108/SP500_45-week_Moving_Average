@@ -1,0 +1,47 @@
+# 标普500技术指标监控系统配置
+
+# 数据获取设置
+data:
+  ticker: "^GSPC"         # 标普500指数代码
+  period: "2y"            # 获取2年数据
+  interval: "1d"          # 日线数据
+
+# 技术指标参数
+indicators:
+  ma:
+    short: 50             # 短期移动平均线
+    long: 200             # 长期移动平均线
+  rsi:
+    period_short: 14      # 短期RSI周期
+    period_long: 30       # 长期RSI周期
+    oversold: 30          # 超卖阈值
+    overbought: 70        # 超买阈值
+  macd:
+    fast: 12              # 快速EMA周期
+    slow: 26              # 慢速EMA周期
+    signal: 9             # 信号线周期
+  bollinger:
+    period: 20            # 布林带周期
+    std_dev: 2            # 标准差
+
+# 信号生成设置
+signals:
+  min_confirm: 2          # 至少需要几个指标同时确认才生成信号
+  lookback: 10            # 查找最近信号的回溯天数
+
+# 邮件通知设置
+email:
+  enabled: true           # 是否启用邮件通知
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  sender_email: "your-email@gmail.com"  # 发件人邮箱
+  sender_password: ""     # 请在GitHub Secrets中设置密码，不要在此处填写
+  recipient_email: "your-email@gmail.com"  # 收件人邮箱
+  
+# 运行模式设置
+run:
+  mode: "auto"            # auto: 全自动模式, manual: 手动模式
+  schedule: "0 0 * * *"   # 每天运行一次 (cron格式)
+  save_plots: true        # 保存图表
+  save_data: true         # 保存数据
+  log_level: "INFO"       # 日志级别: DEBUG, INFO, WARNING, ERROR
