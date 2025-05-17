@@ -84,11 +84,21 @@ class SignalGenerator:
         signals.loc[macd_crossunder, 'MACD_Signal'] = -1
         
         # 4. 计算布林带信号
+        # 确保数据对齐
+        close_shifted = df['Close'].shift(1)
+        bb_lower_shifted = df['BB_Lower'].shift(1)
+        close_current = df['Close']
+        bb_lower_current = df['BB_Lower']
+        
         # 价格触及下轨: 价格下跌触及下轨后回升
-        bb_lower_touch = (df['Close'].shift(1) <= df['BB_Lower'].shift(1)) & (df['Close'] > df['BB_Lower'])
+        bb_lower_touch = (close_shifted <= bb_lower_shifted) & (close_current > bb_lower_current)
         
         # 价格触及上轨: 价格上涨触及上轨后回落
-        bb_upper_touch = (df['Close'].shift(1) >= df['BB_Upper'].shift(1)) & (df['Close'] < df['BB_Upper'])
+        close_shifted = df['Close'].shift(1)
+        bb_upper_shifted = df['BB_Upper'].shift(1)
+        close_current = df['Close']
+        bb_upper_current = df['BB_Upper']
+        bb_upper_touch = (close_shifted >= bb_upper_shifted) & (close_current < bb_upper_current)
         
         signals.loc[bb_lower_touch, 'BB_Signal'] = 1
         signals.loc[bb_upper_touch, 'BB_Signal'] = -1
