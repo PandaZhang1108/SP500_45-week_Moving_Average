@@ -83,56 +83,41 @@ class SignalGenerator:
         signals.loc[macd_crossover, 'MACD_Signal'] = 1
         signals.loc[macd_crossunder, 'MACD_Signal'] = -1
         
-        # 4. 计算布林带信号
-        # 使用更安全的方法来计算布林带信号
+        # 4. 计算布林带信号 - 使用最简单安全的方式
         try:
-            # 为布林带数据创建临时DataFrame，确保索引一致
-            bb_data = pd.DataFrame(index=df.index)
-            bb_data['Close'] = df['Close']
-            bb_data['Close_Prev'] = df['Close'].shift(1)
-            bb_data['BB_Lower'] = df['BB_Lower']
-            bb_data['BB_Lower_Prev'] = df['BB_Lower'].shift(1)
-            bb_data['BB_Upper'] = df['BB_Upper']
-            bb_data['BB_Upper_Prev'] = df['BB_Upper'].shift(1)
-            
-            # 去除任何含NaN的行
-            bb_data = bb_data.dropna()
-            
-            # 价格触及下轨: 价格下跌触及下轨后回升
-            bb_lower_touch = (bb_data['Close_Prev'] <= bb_data['BB_Lower_Prev']) & (bb_data['Close'] > bb_data['BB_Lower'])
-            
-            # 价格触及上轨: 价格上涨触及上轨后回落
-            bb_upper_touch = (bb_data['Close_Prev'] >= bb_data['BB_Upper_Prev']) & (bb_data['Close'] < bb_data['BB_Upper'])
-            
-            # 将结果应用到signals DataFrame
-            signals.loc[bb_lower_touch.index[bb_lower_touch], 'BB_Signal'] = 1
-            signals.loc[bb_upper_touch.index[bb_upper_touch], 'BB_Signal'] = -1
+            # 逐行遍历数据以避免任何对齐问题
+            for i in range(1, len(df)):
+                # 安全获取当前和前一个时间点的值
+                curr_idx = df.index[i]
+                prev_idx = df.index[i-1]
+                
+                # 下轨信号
+                if df.loc[prev_idx, 'Close'] <= df.loc[prev_idx, 'BB_Lower'] and df.loc[curr_idx, 'Close'] > df.loc[curr_idx, 'BB_Lower']:
+                    signals.loc[curr_idx, 'BB_Signal'] = 1
+                
+                # 上轨信号
+                if df.loc[prev_idx, 'Close'] >= df.loc[prev_idx, 'BB_Upper'] and df.loc[curr_idx, 'Close'] < df.loc[curr_idx, 'BB_Upper']:
+                    signals.loc[curr_idx, 'BB_Signal'] = -1
         except Exception as e:
             self.logger.error(f"计算布林带信号时出错: {str(e)}")
             # 如果出错，将BB_Signal设为0
             signals['BB_Signal'] = 0
         
-        # 5. 价格与移动平均线关系
+        # 5. 价格与移动平均线关系 - 使用最简单安全的方式
         try:
-            # 为价格和均线关系创建临时DataFrame
-            price_ma_data = pd.DataFrame(index=df.index)
-            price_ma_data['Close'] = df['Close']
-            price_ma_data['Close_Prev'] = df['Close'].shift(1)
-            price_ma_data[f'MA{ma_long}'] = df[f'MA{ma_long}']
-            price_ma_data[f'MA{ma_long}_Prev'] = df[f'MA{ma_long}'].shift(1)
-            
-            # 去除任何含NaN的行
-            price_ma_data = price_ma_data.dropna()
-            
-            # 价格站上长期均线: 价格从长期均线下方突破至上方
-            price_above_ma = (price_ma_data['Close'] > price_ma_data[f'MA{ma_long}']) & (price_ma_data['Close_Prev'] <= price_ma_data[f'MA{ma_long}_Prev'])
-            
-            # 价格跌破长期均线: 价格从长期均线上方跌破至下方
-            price_below_ma = (price_ma_data['Close'] < price_ma_data[f'MA{ma_long}']) & (price_ma_data['Close_Prev'] >= price_ma_data[f'MA{ma_long}_Prev'])
-            
-            # 将结果应用到signals DataFrame
-            signals.loc[price_above_ma.index[price_above_ma], 'Price_MA_Relation'] = 1
-            signals.loc[price_below_ma.index[price_below_ma], 'Price_MA_Relation'] = -1
+            # 逐行遍历数据以避免任何对齐问题
+            for i in range(1, len(df)):
+                # 安全获取当前和前一个时间点的值
+                curr_idx = df.index[i]
+                prev_idx = df.index[i-1]
+                
+                # 价格站上长期均线
+                if df.loc[curr_idx, 'Close'] > df.loc[curr_idx, f'MA{ma_long}'] and df.loc[prev_idx, 'Close'] <= df.loc[prev_idx, f'MA{ma_long}']:
+                    signals.loc[curr_idx, 'Price_MA_Relation'] = 1
+                
+                # 价格跌破长期均线
+                if df.loc[curr_idx, 'Close'] < df.loc[curr_idx, f'MA{ma_long}'] and df.loc[prev_idx, 'Close'] >= df.loc[prev_idx, f'MA{ma_long}']:
+                    signals.loc[curr_idx, 'Price_MA_Relation'] = -1
         except Exception as e:
             self.logger.error(f"计算价格与均线关系时出错: {str(e)}")
             # 如果出错，将Price_MA_Relation设为0
