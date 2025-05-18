@@ -36,67 +36,86 @@ class MarketAnalyzer:
             self.logger.error("没有可用于分析的数据")
             return None
         
-        # 获取最新数据
-        latest = data.iloc[-1]
-        latest_date = latest.name
+        try:
+            # 获取最新数据
+            latest = data.iloc[-1]
+            latest_date = latest.name
+            
+            # 获取指标参数
+            ma_short = self.config['indicators']['ma']['short']
+            ma_long = self.config['indicators']['ma']['long']
+            rsi_period = self.config['indicators']['rsi']['period_short']
+            
+            # 当前的技术指标值 - 确保所有值都是标量
+            current_price = float(latest['Close'])
+            ma_short_value = float(latest[f'MA{ma_short}'])
+            ma_long_value = float(latest[f'MA{ma_long}'])
+            rsi_value = float(latest[f'RSI{rsi_period}'])
+            macd_value = float(latest['MACD'])
+            macd_signal_value = float(latest['MACD_Signal'])
+            macd_histogram = float(latest['MACD_Histogram'])
+            
+            # 判断市场趋势 - 使用安全比较
+            if current_price > ma_long_value:
+                trend = "上升趋势"
+            else:
+                trend = "下降趋势"
+            
+            # 判断市场强弱
+            rsi_overbought = self.config['indicators']['rsi']['overbought']
+            rsi_oversold = self.config['indicators']['rsi']['oversold']
+            
+            if rsi_value > rsi_overbought:
+                strength = "超买"
+            elif rsi_value < rsi_oversold:
+                strength = "超卖"
+            elif rsi_value > 50:
+                strength = "偏强"
+            else:
+                strength = "偏弱"
+            
+            # 判断市场动能
+            if macd_value > macd_signal_value:
+                momentum = "看涨"
+            else:
+                momentum = "看跌"
+            
+            # 综合分析
+            status = {
+                'date': latest_date.strftime('%Y-%m-%d') if hasattr(latest_date, 'strftime') else str(latest_date),
+                'price': current_price,
+                'ma_short': ma_short_value,
+                'ma_long': ma_long_value,
+                'rsi': rsi_value,
+                'macd': macd_value,
+                'macd_signal': macd_signal_value,
+                'macd_histogram': macd_histogram,
+                'trend': trend,
+                'strength': strength,
+                'momentum': momentum
+            }
+            
+            self.logger.info(f"市场分析完成: 趋势={trend}, 强弱={strength}, 动能={momentum}")
+            
+            return status
         
-        # 获取指标参数
-        ma_short = self.config['indicators']['ma']['short']
-        ma_long = self.config['indicators']['ma']['long']
-        rsi_period = self.config['indicators']['rsi']['period_short']
-        
-        # 当前的技术指标值
-        current_price = latest['Close']
-        ma_short_value = latest[f'MA{ma_short}']
-        ma_long_value = latest[f'MA{ma_long}']
-        rsi_value = latest[f'RSI{rsi_period}']
-        macd_value = latest['MACD']
-        macd_signal_value = latest['MACD_Signal']
-        macd_histogram = latest['MACD_Histogram']
-        
-        # 判断市场趋势
-        if current_price > ma_long_value:
-            trend = "上升趋势"
-        else:
-            trend = "下降趋势"
-        
-        # 判断市场强弱
-        rsi_overbought = self.config['indicators']['rsi']['overbought']
-        rsi_oversold = self.config['indicators']['rsi']['oversold']
-        
-        if rsi_value > rsi_overbought:
-            strength = "超买"
-        elif rsi_value < rsi_oversold:
-            strength = "超卖"
-        elif rsi_value > 50:
-            strength = "偏强"
-        else:
-            strength = "偏弱"
-        
-        # 判断市场动能
-        if macd_value > macd_signal_value:
-            momentum = "看涨"
-        else:
-            momentum = "看跌"
-        
-        # 综合分析
-        status = {
-            'date': latest_date.strftime('%Y-%m-%d') if hasattr(latest_date, 'strftime') else str(latest_date),
-            'price': current_price,
-            'ma_short': ma_short_value,
-            'ma_long': ma_long_value,
-            'rsi': rsi_value,
-            'macd': macd_value,
-            'macd_signal': macd_signal_value,
-            'macd_histogram': macd_histogram,
-            'trend': trend,
-            'strength': strength,
-            'momentum': momentum
-        }
-        
-        self.logger.info(f"市场分析完成: 趋势={trend}, 强弱={strength}, 动能={momentum}")
-        
-        return status
+        except Exception as e:
+            self.logger.error(f"市场分析过程中出错: {str(e)}")
+            
+            # 返回一个基本的状态，避免程序崩溃
+            return {
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'price': 0,
+                'ma_short': 0,
+                'ma_long': 0,
+                'rsi': 0,
+                'macd': 0,
+                'macd_signal': 0,
+                'macd_histogram': 0,
+                'trend': "分析失败",
+                'strength': "分析失败",
+                'momentum': "分析失败"
+            }
     
     def create_summary_report(self, market_status, latest_signals):
         """
